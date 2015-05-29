@@ -1,0 +1,90 @@
+class ServiceProxy < Object
+  attr_accessor :x
+
+  def initialize x
+    self.x = x
+  end
+
+  def method_missing symbol, *args
+    args.size == 0 ? (x.send symbol) : (x.send symbol, args)
+
+    operations = @@association[symbol]
+    if Array === operations
+      operations.each do |o|
+        x.send o
+      end
+    else
+      x.send operations if @@association.include? symbol
+    end
+
+  end
+
+
+  def self.register symbol, operation
+    @@association ||= {}
+    if Array === symbol
+      symbol.each do |s|
+        if @@association.include? s
+          operations = @@association[s]
+          operations << s
+        else
+          @@association[s] = operation
+        end
+      end
+    else
+      @@association[symbol] = operation
+    end
+
+  end
+
+end
+
+module A
+
+  def self.included clazz
+
+  end
+
+  def proxy
+    ServiceProxy.new(self)
+  end
+
+  def self.proxy
+    ServiceProxy
+  end
+
+  extend self
+end
+
+class X
+  def print_num num
+    puts "the num is #{num[0]}"
+  end
+
+  def say
+    puts "Hello Ruby"
+  end
+
+  def say_bye
+    puts "bye"
+  end
+
+  def self.test_class_method
+    puts "class_method"
+  end
+
+  def self.back
+    puts "back"
+  end
+
+
+  ServiceProxy.register [:print_num, :say_bye], [:say]
+  ServiceProxy.register :test_class_method, :back
+end
+X.send :include, A
+X.send :extend, A
+
+#X.new.proxy.print_num 222
+X.new.proxy.say_bye
+#X.proxy.test_class_method
+
